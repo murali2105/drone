@@ -20,3 +20,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+ will run without any issues! Try running python manage.py runserver afterward.
+
