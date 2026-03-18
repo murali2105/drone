@@ -1,0 +1,281 @@
+{% extends 'base.html' %}
+
+{% block title %}Drone pre check measures{% endblock %}
+{% block page_title %}Drone pre check measures{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 0 auto;">
+    
+    <div class="card" style="margin-bottom: 20px; border-color: var(--accent-cyan);">
+        <h2 style="color: var(--accent-cyan); margin-bottom: 10px;">FLIGHT AUTHORIZATION PROTOCOL</h2>
+        <p style="color: var(--text-secondary);">Execute the following diagnostics physically on the drone before initiating arming sequence. Falsifying records will result in permanent suspension.</p>
+        
+        <div style="margin-top: 20px; display: flex; gap: 20px;">
+            <div style="flex: 1;">
+                <label class="form-label" style="color: white;">SELECT DRONE</label>
+                <select class="form-control" id="drone-select">
+                    {% if request.user.assigned_drone %}
+                        <option value="{{ request.user.assigned_drone.id }}">{{ request.user.assigned_drone.drone_id }}</option>
+                    {% else %}
+                        <option value="">No drone assigned. Contact Admin.</option>
+                    {% endif %}
+                </select>
+            </div>
+            <div style="flex: 1;">
+                <label class="form-label" style="color: white;">OPERATOR ID</label>
+                <input type="text" class="form-control" value="{{ request.user.username }}" disabled>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pre-Check Form -->
+    <form id="pre-check-form">
+        
+        <!-- Auto-Diagnostics Section -->
+        <div class="card" style="margin-bottom: 20px; border-color: var(--accent-amber);" id="auto-diag-card">
+            <h3 style="margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; color: var(--accent-amber);">
+                <i class="fa-solid fa-microchip"></i> AUTOMATED SYSTEM DIAGNOSTICS
+            </h3>
+            
+            <p style="color: var(--text-secondary); margin-bottom: 15px; font-size: 0.9rem;">
+                Initiate self-diagnosis to verify internal telemetry, IMU calibration, and motor controllers. Manual checks cannot proceed until automated clearance is granted.
+            </p>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;" id="diag-status-grid">
+                <div class="diag-item" id="diag-imu">
+                    <span style="color: var(--text-secondary);">IMU Calibration:</span>
+                    <span class="badge badge-warning" style="float: right;">PENDING</span>
+                </div>
+                <div class="diag-item" id="diag-compass">
+                    <span style="color: var(--text-secondary);">Compass Interference:</span>
+                    <span class="badge badge-warning" style="float: right;">PENDING</span>
+                </div>
+                <div class="diag-item" id="diag-baro">
+                    <span style="color: var(--text-secondary);">Barometer:</span>
+                    <span class="badge badge-warning" style="float: right;">PENDING</span>
+                </div>
+                <div class="diag-item" id="diag-esc">
+                    <span style="color: var(--text-secondary);">ESC Initialization:</span>
+                    <span class="badge badge-warning" style="float: right;">PENDING</span>
+                </div>
+            </div>
+            
+            <button type="button" id="btn-run-diagnostics" class="btn" style="width: 100%; border-color: var(--accent-amber); color: var(--accent-amber);">
+                <i class="fa-solid fa-satellite-dish"></i> RUN SELF-DIAGNOSIS
+            </button>
+        </div>
+
+        <!-- Checklist Section (Disabled initially) -->
+        <div id="manual-checklist" style="opacity: 0.5; pointer-events: none; transition: opacity 0.5s;">
+            <div class="card" style="margin-bottom: 20px;">
+                <h3 style="margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">1. PHYSICAL INSPECTION</h3>
+                <div class="checklist-item" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                    <label style="cursor: pointer; display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" class="check-input" data-category="physical" style="width: 20px; height: 20px; accent-color: var(--accent-cyan);">
+                        Frame is structurally sound, no cracks or deformations.
+                    </label>
+                </div>
+                <div class="checklist-item" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                    <label style="cursor: pointer; display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" class="check-input" data-category="physical" style="width: 20px; height: 20px; accent-color: var(--accent-cyan);">
+                        Propellers are secure, undamaged, and spin freely without friction.
+                    </label>
+                </div>
+                <div class="checklist-item" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                    <label style="cursor: pointer; display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" class="check-input" data-category="physical" style="width: 20px; height: 20px; accent-color: var(--accent-cyan);">
+                        Motors are clear of debris and mounted securely.
+                    </label>
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom: 20px;">
+                <h3 style="margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">2. AVIONICS & POWER</h3>
+                <div class="checklist-item" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                    <label style="cursor: pointer; display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" class="check-input" data-category="power" style="width: 20px; height: 20px; accent-color: var(--accent-cyan);">
+                        Battery is fully seated, latch engaged. Voltage > 23.5V.
+                    </label>
+                </div>
+                <div class="checklist-item" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                    <label style="cursor: pointer; display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" class="check-input" data-category="power" style="width: 20px; height: 20px; accent-color: var(--accent-cyan);">
+                        GPS Lock established (Wait for blinking green status LED / 12+ sats).
+                    </label>
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom: 20px;">
+                <h3 style="margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">3. COMMUNICATION & PAYLOAD</h3>
+                <div class="checklist-item" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                    <label style="cursor: pointer; display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" class="check-input" data-category="comms" style="width: 20px; height: 20px; accent-color: var(--accent-cyan);">
+                        RC Link telemetry strength > 80% with no dropped packets.
+                    </label>
+                </div>
+                <div class="checklist-item" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                    <label style="cursor: pointer; display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" class="check-input" data-category="payload" style="width: 20px; height: 20px; accent-color: var(--accent-cyan);">
+                        Camera gimbal cycles freely, lens clean, SD card inserted and formatted.
+                    </label>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card" style="margin-bottom: 30px; text-align: center;">
+            <div style="margin-bottom: 20px;">
+                <div style="height: 10px; background: rgba(255,255,255,0.1); border-radius: 5px; overflow: hidden; margin-top: 10px;">
+                    <div id="progress-bar" style="height: 100%; width: 0%; background: var(--accent-cyan); transition: width 0.3s;"></div>
+                </div>
+                <div style="margin-top: 5px; font-size: 0.85rem; color: var(--text-secondary);" id="progress-text">0/4 Checks Completed</div>
+            </div>
+            
+            <button type="button" id="submit-btn" class="btn btn-primary" style="padding: 15px 40px; font-size: 1.2rem;" disabled>
+                <i class="fa-solid fa-arrow-up-right-dots"></i> INITIATE LAUNCH SEQUENCE 
+            </button>
+            <div id="status-msg" style="margin-top: 15px; display: none;"></div>
+        </div>
+
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const checkboxes = document.querySelectorAll('.check-input');
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+        const submitBtn = document.getElementById('submit-btn');
+        const totalChecks = checkboxes.length;
+        
+        const btnRunDiag = document.getElementById('btn-run-diagnostics');
+        const manualChecklist = document.getElementById('manual-checklist');
+        let diagnosticsPassed = false;
+
+        // Auto Diagnostics Logic
+        btnRunDiag.addEventListener('click', async function() {
+            if(!document.getElementById('drone-select').value) {
+                alert("Please select a drone first.");
+                return;
+            }
+
+            btnRunDiag.disabled = true;
+            btnRunDiag.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> RUNNING DIAGNOSTICS...';
+            
+            const subsystems = [
+                { id: 'diag-imu', time: 1000 },
+                { id: 'diag-compass', time: 1500 },
+                { id: 'diag-baro', time: 800 },
+                { id: 'diag-esc', time: 1200 }
+            ];
+
+            // Simulate diagnostics checking
+            let cumulativeDelay = 0;
+            for (let sub of subsystems) {
+                cumulativeDelay += sub.time;
+                setTimeout(() => {
+                    const el = document.getElementById(sub.id).querySelector('.badge');
+                    el.className = 'badge badge-active';
+                    el.innerText = 'OK';
+                }, cumulativeDelay);
+            }
+
+            // Final unlock
+            setTimeout(() => {
+                btnRunDiag.className = 'btn';
+                btnRunDiag.style.borderColor = 'var(--accent-green)';
+                btnRunDiag.style.color = 'var(--accent-green)';
+                btnRunDiag.innerHTML = '<i class="fa-solid fa-check-double"></i> DIAGNOSTICS PASSED';
+                
+                diagnosticsPassed = true;
+                manualChecklist.style.opacity = '1';
+                manualChecklist.style.pointerEvents = 'auto';
+                
+                // Trigger initial progress update so text reflects total checks correctly
+                updateProgress();
+            }, cumulativeDelay + 500);
+        });
+
+        // Manual Checklist Logic
+        checkboxes.forEach(box => {
+            box.addEventListener('change', updateProgress);
+        });
+
+        function updateProgress() {
+            const checkedCount = document.querySelectorAll('.check-input:checked').length;
+            const percentage = (checkedCount / totalChecks) * 100;
+            
+            progressBar.style.width = `${percentage}%`;
+            progressText.innerText = `${checkedCount}/${totalChecks} Checks Completed`;
+            
+            if (percentage === 100 && diagnosticsPassed) {
+                progressBar.style.background = 'var(--accent-green)';
+                submitBtn.disabled = false;
+                submitBtn.style.borderColor = 'var(--accent-green)';
+                submitBtn.style.color = 'var(--accent-green)';
+                submitBtn.innerHTML = '<i class="fa-solid fa-check"></i> ALL SYSTEMS GO - SUBMIT LOG';
+            } else {
+                progressBar.style.background = 'var(--accent-cyan)';
+                submitBtn.disabled = true;
+                submitBtn.style.borderColor = 'var(--accent-cyan)';
+                submitBtn.style.color = 'var(--accent-cyan)';
+                submitBtn.innerHTML = '<i class="fa-solid fa-arrow-up-right-dots"></i> COMPLETE DIAGNOSTICS';
+            }
+        }
+        
+        // Initial setup
+        progressText.innerText = `0/${totalChecks} Checks Completed`;
+
+        submitBtn.addEventListener('click', async function() {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> TRANSMITTING...';
+            
+            const droneId = document.getElementById('drone-select').value;
+            if(!droneId) {
+                alert("No drone selected. Cannot submit pre-check.");
+                updateProgress(); // Reset button
+                return;
+            }
+
+            const payload = {
+                drone: parseInt(droneId),
+                overall_status: 'pass',
+                checklist_data: { "physical": true, "power": true, "comms": true, "payload": true, "auto_diag": true }
+            };
+
+            try {
+                const response = await fetch('/api/pre-check/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken()
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (response.ok) {
+                    const statusMsg = document.getElementById('status-msg');
+                    statusMsg.style.display = 'block';
+                    statusMsg.style.color = 'var(--accent-green)';
+                    statusMsg.innerHTML = '<i class="fa-solid fa-circle-check"></i> Authorization granted. Logs saved.';
+                    
+                    submitBtn.style.display = 'none';
+                    
+                    setTimeout(() => {
+                        window.location.href = '{% url "student_dashboard" %}';
+                    }, 2000);
+                } else {
+                    const data = await response.json();
+                    alert("Transmission failed: " + JSON.stringify(data));
+                    updateProgress(); 
+                }
+            } catch(e) {
+                console.error(e);
+                alert("Network error.");
+                updateProgress();
+            }
+        });
+    });
+</script>
+{% endblock %}

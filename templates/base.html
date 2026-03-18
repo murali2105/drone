@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AeroCommand{% endblock %} | Drone Fleet Management</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="/static/css/index.css">
+    
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+    {% if request.user.is_authenticated %}
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <i class="fa-solid fa-plane-up"></i> AeroCommand
+                </div>
+            </div>
+            
+            <ul class="nav-menu">
+                {% if request.user.role == 'admin' %}
+                <li class="nav-item">
+                    <a href="{% url 'admin_dashboard' %}" class="nav-link {% if request.path == '/admin-panel/dashboard/' %}active{% endif %}">
+                        <i class="fa-solid fa-chart-line"></i> Dashboard
+                    </a>
+                </li>
+                {% else %}
+                <li class="nav-item">
+                    <a href="{% url 'student_dashboard' %}" class="nav-link {% if request.path == '/student/dashboard/' %}active{% endif %}">
+                        <i class="fa-solid fa-user-astronaut"></i> My Dashboard
+                    </a>
+                </li>
+                {% endif %}
+                
+                <li class="nav-item">
+                    <a href="{% url 'map_view' %}" class="nav-link {% if request.path == '/map/' %}active{% endif %}">
+                        <i class="fa-solid fa-map-location-dot"></i> Live Map
+                    </a>
+                </li>
+                
+                <li class="nav-item">
+                    <a href="{% url 'pre_check_view' %}" class="nav-link {% if request.path == '/pre-check/' %}active{% endif %}">
+                        <i class="fa-solid fa-clipboard-check"></i> Pre-Flight Check
+                    </a>
+                </li>
+                
+                <li class="nav-item">
+                    <a href="{% url 'mission_planner_view' %}" class="nav-link {% if request.path == '/mission-planner/' %}active{% endif %}">
+                        <i class="fa-solid fa-route"></i> Mission Planner
+                    </a>
+                </li>
+            </ul>
+            
+            <div class="sidebar-footer">
+                <div>SYS_STATUS: <span style="color:var(--accent-green)">ONLINE</span></div>
+                <div style="margin-top:5px; font-size:10px; opacity:0.5;">v1.0.42_STABLE</div>
+            </div>
+        </aside>
+
+        <!-- Main Content Wrapper -->
+        <div class="main-content">
+            <!-- Topbar -->
+            <header class="topbar">
+                <div class="topbar-left">
+                    <h2 style="font-size:1.2rem; color:var(--text-secondary);">{% block page_title %}Dashboard{% endblock %}</h2>
+                </div>
+                
+                <div class="topbar-right">
+                    <div style="font-family:var(--font-heading); margin-right: 15px; text-shadow: 0 0 5px rgba(255, 59, 59, 0.8); color: var(--accent-red);">
+                        <i class="fa-solid fa-satellite-dish" style="animation: pulse 2s infinite;"></i> SAT_LINK: OK
+                    </div>
+                
+                    <div class="user-profile">
+                        <div style="text-align: right;">
+                            <div style="font-weight: 600;">{{ request.user.first_name }} {{ request.user.last_name }}</div>
+                            <div class="user-role">{{ request.user.get_role_display|upper }}</div>
+                        </div>
+                        <div style="width: 40px; height: 40px; background: var(--border-color); border: 2px solid var(--accent-cyan); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                            <i class="fa-solid fa-user"></i>
+                        </div>
+                    </div>
+                    
+                    <a href="{% url 'logout' %}" style="color: var(--text-secondary); margin-left: 15px;" title="Logout">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                    </a>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <main class="content-area">
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="card" style="padding: 15px; border-left: 4px solid var(--accent-cyan); margin-bottom: 20px;">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+                
+                {% block content %}
+                {% endblock %}
+            </main>
+        </div>
+    </div>
+    {% else %}
+        {% block login_content %}
+        {% endblock %}
+    {% endif %}
+
+    <style>
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+    </style>
+    
+    <!-- Core JS dependencies -->
+    <script>
+        // Common utility functions
+        const getCSRFToken = () => {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, 'csrftoken'.length + 1) === ('csrftoken' + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring('csrftoken'.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        };
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

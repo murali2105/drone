@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+{% block title %}Login{% endblock %}
+
+{% block login_content %}
+<div class="login-split">
+    <!-- Left Hero Side -->
+    <div class="login-hero">
+        <div class="hero-content">
+            <h1 style="font-size: 3rem; margin-bottom: 20px; color: var(--accent-cyan); text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);">AEROCOMMAND</h1>
+            <p style="font-size: 1.2rem; margin-bottom: 40px; color: var(--text-secondary);">Advanced Drone Fleet Management System</p>
+            
+            <div class="radar-sweep"></div>
+            <div style="font-family: var(--font-heading); color: var(--accent-green); letter-spacing: 2px;">SYS_READY</div>
+        </div>
+    </div>
+    
+    <!-- Right Form Side -->
+    <div class="login-form-container">
+        <h2 style="margin-bottom: 30px; border-left: 4px solid var(--accent-cyan); padding-left: 15px;">AUTHORIZATION REQUIRED</h2>
+        
+        <form method="POST">
+            {% csrf_token %}
+            
+            {% if form.errors %}
+                <div class="card" style="border-color: var(--accent-red); background: rgba(255, 59, 59, 0.05); padding: 10px; margin-bottom: 20px;">
+                    <p style="color: var(--accent-red);">Authentication failed. Check credentials.</p>
+                </div>
+            {% endif %}
+
+            <div class="form-group">
+                <label class="form-label">IDENTITY (USERNAME)</label>
+                <input type="text" name="username" class="form-control" required autocomplete="off" placeholder="Enter Agent ID">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">SECURITY KEY (PASSWORD)</label>
+                <input type="password" name="password" class="form-control" required placeholder="•••••••••">
+            </div>
+            
+            <div style="margin-top: 40px;">
+                <button type="submit" class="btn btn-primary" style="width: 100%; padding: 15px; font-size: 1.1rem; letter-spacing: 2px; text-transform: uppercase;">
+                    <i class="fa-solid fa-fingerprint"></i> Authenticate
+                </button>
+            </div>
+        </form>
+        
+        <div style="margin-top: 50px; text-align: center; color: var(--text-secondary); font-size: 0.85rem;">
+            AEROCMD // RESTRICTED ACCESS // V1.0.42
+        </div>
+    </div>
+</div>
+{% endblock %}

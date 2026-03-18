@@ -1,0 +1,303 @@
+{% extends 'base.html' %}
+
+{% block title %}Mission Planner{% endblock %}
+{% block page_title %}AUTONOMOUS MISSION PLANNER{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+
+<style>
+    .planner-split {
+        display: flex;
+        height: calc(100vh - 120px);
+        margin: -30px;
+    }
+    
+    #planner-map {
+        flex: 2;
+        background: #0A0A0F;
+        z-index: 1;
+    }
+    
+    .config-panel {
+        flex: 1;
+        background: var(--card-bg);
+        border-right: 1px solid var(--border-color);
+        padding: 20px;
+        overflow-y: auto;
+        z-index: 2;
+        box-shadow: 2px 0 10px rgba(0,0,0,0.5);
+    }
+    
+    .waypoint-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+        font-size: 0.85rem;
+    }
+    
+    .waypoint-table th {
+        text-align: left;
+        padding: 8px;
+        color: var(--accent-cyan);
+        border-bottom: 1px solid var(--border-color);
+        font-family: var(--font-heading);
+    }
+    
+    .waypoint-table td {
+        padding: 8px;
+        border-bottom: 1px solid rgba(42, 42, 53, 0.5);
+        color: var(--text-secondary);
+    }
+    
+    /* Small overrides for Leaflet dark mode */
+    .leaflet-bar a { background-color: var(--card-bg) !important; color: var(--accent-cyan) !important; border-bottom: 1px solid var(--border-color) !important; }
+    .leaflet-bar a:hover { background-color: var(--bg-color) !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="planner-split">
+    <!-- Map Side -->
+    <div id="planner-map"></div>
+    
+    <!-- Config Panel Side -->
+    <div class="config-panel">
+        <h3 style="color: var(--text-primary); margin-bottom: 20px;; border-bottom: 2px solid var(--accent-cyan); padding-bottom: 10px;">
+            <i class="fa-solid fa-satellite-dish"></i> MISSION UPLOAD
+        </h3>
+        
+        <form id="mission-form">
+            <div class="form-group">
+                <label class="form-label">MISSION DESIGNATION</label>
+                <input type="text" id="mission-name" class="form-control" placeholder="e.g. Sector 7 Survey" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">ASSIGNED UNIT</label>
+                <select id="drone-select" class="form-control" required>
+                    <option value="">-- Select Available Unit --</option>
+                    {% if request.user.role == 'student' %}
+                        {% if request.user.assigned_drone %}
+                            <option value="{{ request.user.assigned_drone.id }}">{{ request.user.assigned_drone.drone_id }}</option>
+                        {% endif %}
+                    {% else %}
+                        <!-- Admin can select any unit, simplified here -->
+                        <option value="1">Alpha-01</option>
+                        <option value="2">Beta-09</option>
+                    {% endif %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">MISSION TYPE</label>
+                <select id="mission-type" class="form-control">
+                    <option value="waypoint">WAYPOINT ROUTE</option>
+                    <option value="survey">SURVEY GRID</option>
+                    <option value="orbit">ORBIT TARGET</option>
+                </select>
+            </div>
+            
+            <div class="card" style="margin-top: 20px; padding: 15px; background: rgba(0,0,0,0.2);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h4 style="font-size: 1rem;"><i class="fa-solid fa-route"></i> WAYPOINTS</h4>
+                    <span id="wp-count" class="badge badge-active">0 PLOTTED</span>
+                </div>
+                
+                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 10px;">
+                    Use the map drawing tools <i class="fa-solid fa-pen"></i> to plot coordinates.
+                </p>
+                
+                <div style="max-height: 200px; overflow-y: auto;">
+                    <table class="waypoint-table" id="wp-table">
+                        <thead>
+                            <tr>
+                                <th>SEQ</th>
+                                <th>LAT/LNG</th>
+                                <th>ALT(m)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="3" style="text-align: center; padding: 15px;">No waypoints defined.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; margin-top: 30px; gap: 15px;">
+                <button type="button" class="btn" onclick="clearWaypoints()" style="flex: 1; border-color: var(--accent-red); color: var(--accent-red);">
+                    <i class="fa-solid fa-trash-can"></i> ABORT
+                </button>
+                <button type="submit" id="submit-btn" class="btn btn-primary" style="flex: 2; border-color: var(--accent-cyan); color: var(--accent-cyan);">
+                    <i class="fa-solid fa-upload"></i> REQUEST APPROVAL
+                </button>
+            </div>
+            <div id="status-msg" style="margin-top: 15px; font-size: 0.85rem; text-align: center; display: none;"></div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const map = L.map('planner-map').setView([37.7749, -122.4194], 14);
+        
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+            maxZoom: 20
+        }).addTo(map);
+
+        // FeatureGroup is to store editable layers
+        const drawnItems = new L.FeatureGroup();
+        map.addLayer(drawnItems);
+
+        const drawControl = new L.Control.Draw({
+            edit: {
+                featureGroup: drawnItems
+            },
+            draw: {
+                polygon: true,
+                polyline: true,
+                rectangle: false,
+                circle: false,
+                circlemarker: false,
+                marker: true
+            }
+        });
+        map.addControl(drawControl);
+
+        let waypoints = []; // Array to hold lat/lngs
+
+        function updateWaypointTable() {
+            const tableBody = document.querySelector('#wp-table tbody');
+            const wpCount = document.getElementById('wp-count');
+            
+            if (waypoints.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 15px;">No waypoints defined.</td></tr>';
+                wpCount.innerText = '0 PLOTTED';
+                return;
+            }
+
+            wpCount.innerText = `${waypoints.length} PLOTTED`;
+            tableBody.innerHTML = '';
+            
+            waypoints.forEach((wp, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>#${index + 1}</td>
+                    <td style="font-family: monospace;">${wp.lat.toFixed(5)}, ${wp.lng.toFixed(5)}</td>
+                    <td><input type="number" class="form-control" value="50" style="padding: 2px; width: 60px; height: 25px; text-align: right;"></td>
+                `;
+                tableBody.appendChild(tr);
+            });
+        }
+
+        map.on(L.Draw.Event.CREATED, function (e) {
+            const type = e.layerType;
+            const layer = e.layer;
+            
+            drawnItems.addLayer(layer);
+            
+            if (type === 'marker') {
+                waypoints.push(layer.getLatLng());
+            } else if (type === 'polyline' || type === 'polygon') {
+                const latlngs = layer.getLatLngs();
+                // flatten polygon arrays
+                const pts = type === 'polygon' ? latlngs[0] : latlngs;
+                pts.forEach(pt => waypoints.push(pt));
+            }
+            
+            updateWaypointTable();
+        });
+
+        // Global function attached to window for clear button
+        window.clearWaypoints = function() {
+            drawnItems.clearLayers();
+            waypoints = [];
+            updateWaypointTable();
+        };
+
+        // Form Submit
+        document.getElementById('mission-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            if (waypoints.length === 0) {
+                alert("Cannot submit mission without waypoints. Draw a route on the map.");
+                return;
+            }
+            
+            const submitBtn = document.getElementById('submit-btn');
+            const statusMsg = document.getElementById('status-msg');
+            const droneId = document.getElementById('drone-select').value;
+            
+            if (!droneId) {
+                alert("Select an assigned unit first.");
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> TRANSMITTING...';
+
+            // To valid GeoJSON FeatureCollection
+            const lineStringCoords = waypoints.map(wp => [wp.lng, wp.lat]); // GeoJSON is [lng, lat]
+            
+            const payload = {
+                name: document.getElementById('mission-name').value,
+                drone: parseInt(droneId),
+                mission_type: document.getElementById('mission-type').value,
+                status: 'pending', // Will be draft/pending depending on backend logic
+                waypoints: {
+                    type: "FeatureCollection",
+                    features: [{
+                        type: "Feature",
+                        geometry: {
+                            type: "LineString",
+                            coordinates: lineStringCoords
+                        },
+                        properties: {
+                            name: "Mission Route"
+                        }
+                    }]
+                }
+            };
+
+            try {
+                const response = await fetch('/api/missions/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken()
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (response.ok) {
+                    statusMsg.style.display = 'block';
+                    statusMsg.style.color = 'var(--accent-green)';
+                    statusMsg.innerHTML = '<i class="fa-solid fa-check"></i> MISSION UPLOADED. AWAITING ATC APPROVAL.';
+                    
+                    setTimeout(() => {
+                        window.location.href = '{% url "student_dashboard" %}';
+                    }, 2000);
+                } else {
+                    const errorData = await response.json();
+                    alert("Upload failed: " + JSON.stringify(errorData));
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fa-solid fa-upload"></i> REQUEST APPROVAL';
+                }
+            } catch(error) {
+                console.error("Transmission error:", error);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fa-solid fa-upload"></i> REQUEST APPROVAL';
+            }
+        });
+    });
+</script>
+{% endblock %}
